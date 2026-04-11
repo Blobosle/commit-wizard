@@ -2,6 +2,10 @@
 
 #include <string>
 #include <vector>
+#include <filesystem>
+
+#define MAX_BUF_SIZE    (4096)
+#define GIT_CMD         ("log --pretty=format:\"%H|%ct\" --numstat")
 
 struct commit_t {
     std::string commit_hash;
@@ -17,4 +21,4 @@ struct git_entry_t {
 
 extern std::vector<git_entry_t> g_entries;
 
-std::vector<commit_t> fetch_commits(std::string);
+std::vector<commit_t> fetch_commits(std::filesystem::path);

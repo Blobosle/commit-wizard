@@ -1,6 +1,7 @@
 #include <commitwizard.h>
 
 #include <print>
+#include <filesystem>
 
 std::vector<git_entry_t> g_entries = {};
 
@@ -11,7 +12,8 @@ int main(int argc, char **argv) {
         return 0;
     }
 
-    fetch_commits("Hello");
+    fetch_commits(static_cast<std::filesystem::path>(argv[1]));
+
     return 0;
 }
 
