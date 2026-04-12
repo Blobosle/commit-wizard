@@ -16,13 +16,14 @@ FetchContent_Declare(ftxui
 FetchContent_MakeAvailable(ftxui)
 
 file(GLOB SRC_FILES src/*.cpp)
-add_executable(main ${SRC_FILES})
+add_executable(cwiz ${SRC_FILES} libs/sqlite3.c)
 
-target_include_directories(main
+target_include_directories(cwiz
     PRIVATE ${CMAKE_SOURCE_DIR}/includes
+    PRIVATE ${CMAKE_SOURCE_DIR}/libs
 )
 
-target_link_libraries(main
+target_link_libraries(cwiz
     PRIVATE ftxui::screen
     PRIVATE ftxui::dom
     PRIVATE ftxui::component

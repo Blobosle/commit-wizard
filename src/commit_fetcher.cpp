@@ -5,11 +5,18 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <unordered_map>
+#include <unordered_set>
 
 namespace fs = std::filesystem;
 
+void fetch_batch(fs::path);
+git_entry_t fetch_commits(fs::path);
+static std::string exec_git_cmd(fs::path&, std::string);
+static void prune_commits(git_entry_t&);
+
 /*
- * Executes git command and returns buffer with result
+ * Executes git command and returns buffer with result.
  */
 static std::string exec_git_cmd(fs::path &dir, std::string cmd) {
     std::array<char, MAX_BUF_SIZE> buffer{};
@@ -31,6 +38,30 @@ static std::string exec_git_cmd(fs::path &dir, std::string cmd) {
 }
 
 /*
+ * Obtains every subdirectory that is a git instance and runs the commit
+ * fetcher to then push them into the global git entry vector.
+ */
+void fetch_batch(fs::path dir) {
+    if ((!fs::exists(dir)) || (!fs::is_directory(dir))) {
+        return;
+    }
+
+    for (auto i : fs::directory_iterator(dir)) {
+        if (!i.is_directory()) {
+            continue;
+        }
+
+        fs::path subdir = i.path();
+
+        if ((!fs::exists(subdir / ".git")) || (!fs::is_directory(subdir / ".git"))) {
+            continue;
+        }
+
+        g_entries.push_back(fetch_commits(subdir));
+    }
+}
+
+/*
  * Given a directory name it will parse the git commit information
  * and return the entry related to it.
  */
@@ -40,7 +71,6 @@ git_entry_t fetch_commits(fs::path dir) {
     }
 
     std::string cmd_out = exec_git_cmd(dir, "git -C \"" + dir.string() + "\" " + GIT_CMD);
-    // long commit_count = std::stoi(exec_git_cmd(dir, "git rev-list --count HEAD"));
 
     std::istringstream cmd_iss(cmd_out);
     std::vector<std::vector<std::string>> parsed_blocks;
@@ -62,7 +92,8 @@ git_entry_t fetch_commits(fs::path dir) {
         cur_block.push_back(line);
     }
 
-    git_entry_t new_git_entry = { dir.string() };
+    git_entry_t new_git_entry = { .entry_name = dir.string(),
+        .num_commits = static_cast<long>(parsed_blocks.size()) };
 
     /* Parsing blocks into their file changes */
     for (auto block : parsed_blocks) {
@@ -96,12 +127,13 @@ git_entry_t fetch_commits(fs::path dir) {
 
             std::getline(block_iss, new_file.file_name);
 
-
             new_commit.files.push_back(new_file);
         }
 
         new_git_entry.commits.push_back(new_commit);
     }
+
+    // prune_commits(new_git_entry);
 
     for (const auto& commit : new_git_entry.commits) {
         std::print("    commit_t {{\n");
@@ -126,4 +158,47 @@ git_entry_t fetch_commits(fs::path dir) {
     std::print("}}\n");
 
     return {};
+}
+
+/*
+ * Find missing files in between commits and propagates them.
+ */
+static void prune_commits(git_entry_t& repo) {
+    if (repo.commits.empty()) {
+        return;
+    }
+
+    std::unordered_map<std::string, files_t> seen_files;
+
+    for (auto& f : repo.commits.back().files) {
+        seen_files[f.file_name] = f;
+    }
+
+    commit_t prev_commit = repo.commits.back();
+
+    for (int i = static_cast<int>(repo.commits.size()) - 2; i >= 0; --i) {
+        commit_t& commit = repo.commits[i];
+
+        commit.seconds_since_prev = commit.time - prev_commit.time;
+
+        std::unordered_set<std::string> commit_files;
+        for (auto& f : commit.files) {
+            commit_files.insert(f.file_name);
+
+            if (f.is_active) {
+                seen_files[f.file_name] = f;
+            }
+            else {
+                seen_files.erase(f.file_name);
+            }
+        }
+
+        for (auto& [name, file] : seen_files) {
+            if (!commit_files.contains(name)) {
+                commit.files.push_back(file);
+            }
+        }
+
+        prev_commit = commit;
+    }
 }

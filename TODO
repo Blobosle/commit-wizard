@@ -3,3 +3,8 @@
     - Given that the file_t struct is limited to the specific commit, if a user deletes a file in between commits, it will not be consistent
         - There are no guarantees that a file seen in one commit_t will be in another commit_t under the same user.
 
+# TOOD
+    + Begin working on TUI
+    + Processing commits for time diffs
+    + Processing commits for cheating
+    + Database setup for memory
