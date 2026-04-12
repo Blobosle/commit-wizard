@@ -19,6 +19,9 @@ static git_entry_t load_git_entry(sqlite3*, const std::string&);
 static void replace_git_entry(sqlite3*, const git_entry_t&);
 static void delete_git_entry(sqlite3*, const std::string&);
 
+/*
+ * Creates the database schema when the backing file is initialized.
+ */
 void init_db(fs::path dir) {
     sqlite3 *db = open_db(dir);
 
@@ -75,6 +78,9 @@ void init_db(fs::path dir) {
     db = NULL;
 }
 
+/*
+ * Synchronizes repository commit data with the local sqlite database.
+ */
 void sync_db(fs::path db_dir, fs::path root_dir) {
     sqlite3 *db = open_db(db_dir);
     g_entries.clear();
@@ -97,6 +103,9 @@ void sync_db(fs::path db_dir, fs::path root_dir) {
     sqlite3_close(db);
 }
 
+/*
+ * Opens the sqlite database and enables foreign key support.
+ */
 static sqlite3* open_db(fs::path dir) {
     sqlite3 *db = nullptr;
     fs::path db_path = dir / "cwiz.db";
@@ -147,6 +156,9 @@ static std::vector<fs::path> collect_repo_dirs(fs::path root_dir) {
     return repos;
 }
 
+/*
+ * Fetches the stored commit count for a repository entry.
+ */
 static long fetch_db_commit_count(sqlite3 *db, const std::string& entry_name) {
     sqlite3_stmt *stmt = nullptr;
     const char *sql = R"(
@@ -178,6 +190,9 @@ static long fetch_db_commit_count(sqlite3 *db, const std::string& entry_name) {
     return commit_count;
 }
 
+/*
+ * Loads a repository entry and its commit data from the database.
+ */
 static git_entry_t load_git_entry(sqlite3 *db, const std::string& entry_name) {
     sqlite3_stmt *entry_stmt = nullptr;
     const char *entry_sql = R"(
@@ -273,6 +288,9 @@ static git_entry_t load_git_entry(sqlite3 *db, const std::string& entry_name) {
     return git_entry;
 }
 
+/*
+ * Replaces a repository entry and all nested records in one transaction.
+ */
 static void replace_git_entry(sqlite3 *db, const git_entry_t& git_entry) {
     char *err_msg = nullptr;
     int rc = sqlite3_exec(db, "BEGIN TRANSACTION;", nullptr, nullptr, &err_msg);
@@ -389,6 +407,9 @@ static void replace_git_entry(sqlite3 *db, const git_entry_t& git_entry) {
     }
 }
 
+/*
+ * Deletes a repository entry and its dependent records from the database.
+ */
 static void delete_git_entry(sqlite3 *db, const std::string& entry_name) {
     const char *delete_files_sql = R"(
         DELETE FROM files
