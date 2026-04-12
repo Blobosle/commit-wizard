@@ -29,6 +29,7 @@ struct git_entry_t {
 extern std::vector<git_entry_t> g_entries;
 
 git_entry_t fetch_commits(std::filesystem::path);
+long fetch_commit_count(std::filesystem::path);
 void fetch_batch(std::filesystem::path);
 void init_db(std::filesystem::path);
-
+void sync_db(std::filesystem::path, std::filesystem::path);

@@ -22,6 +22,8 @@ int main(int argc, char **argv) {
 
     if (s_flag) {
         init_db(static_cast<fs::path>(argv[db_dir]));
+        sync_db(static_cast<fs::path>(argv[db_dir]), static_cast<fs::path>(argv[root_dir]));
+        return 0;
     }
 
     if (args_ret == -1) {
