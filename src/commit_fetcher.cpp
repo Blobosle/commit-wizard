@@ -74,14 +74,6 @@ long fetch_commit_count(fs::path dir) {
 
     std::string cmd_out = exec_git_cmd(dir, "git -C \"" + dir.string() + "\" rev-list --count HEAD");
 
-    if (cmd_out.empty()) {
-        return 0;
-    }
-
-    while (!cmd_out.empty() && (cmd_out.back() == '\n' || cmd_out.back() == '\r')) {
-        cmd_out.pop_back();
-    }
-
     return cmd_out.empty() ? 0 : std::stol(cmd_out);
 }
 

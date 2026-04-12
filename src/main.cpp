@@ -6,7 +6,6 @@
 std::vector<git_entry_t> g_entries = {};
 
 static int args_checker(int, char **, int&, int&, bool&);
-static void normal_mode(std::filesystem::path);
 
 namespace fs = std::filesystem;
 
@@ -23,25 +22,20 @@ int main(int argc, char **argv) {
     if (s_flag) {
         init_db(static_cast<fs::path>(argv[db_dir]));
         sync_db(static_cast<fs::path>(argv[db_dir]), static_cast<fs::path>(argv[root_dir]));
-        return 0;
     }
-
-    if (args_ret == -1) {
+    else if (args_ret == -1) {
         return 1;
     }
     else if (args_ret == 1) {
         fetch_batch(static_cast<fs::path>(argv[root_dir]));
-
-        return 0;
+    }
+    else {
+        g_entries.clear();
+        g_entries.push_back(fetch_commits(argv[root_dir]));
     }
 
-    normal_mode(static_cast<fs::path>(argv[root_dir]));
-
+    /* TODO: Tui logic somewhere around here */
     return 0;
-}
-
-static void normal_mode(fs::path dir) {
-    fetch_commits(dir);
 }
 
 static int args_checker(int argc, char **argv, int &root_dir, int &db_dir, bool& s_flag) {

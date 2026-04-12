@@ -1,7 +1,6 @@
 #include <commitwizard.h>
 #include <sqlite3.h>
 
-#include <print>
 #include <vector>
 
 #define SQL_ERROR(x) do { \
@@ -70,12 +69,6 @@ void init_db(fs::path dir) {
     rc = sqlite3_exec(db, files_query.c_str(), nullptr, nullptr, &err_msg);
     if (rc != SQLITE_OK) {
         SQL_ERROR("failed to create files");
-    }
-
-    rc = sqlite3_exec(db, "PRAGMA foreign_keys = ON;", nullptr, nullptr, nullptr);
-    if (rc != SQLITE_OK) {
-        sqlite3_close(db);
-        throw std::runtime_error("failed to enable foreign keys");
     }
 
     sqlite3_close(db);
