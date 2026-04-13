@@ -13,6 +13,9 @@
 using namespace ftxui;
 
 static Element render_menu(int);
+static Element render_git_entries_tab();
+static Element render_database_tab();
+static Element render_settings_tab();
 static int tui_input(int&);
 
 static volatile std::sig_atomic_t g_should_exit = 0;
@@ -59,9 +62,9 @@ static int tui_input(int& menu_index) {
 
 static Element render_menu(int menu_index) {
     std::array<std::string_view, 3> menu_entries = {
-        "menu 1",
-        "menu 2",
-        "menu 3",
+        "Git repositories",
+        "Database",
+        "Settings",
     };
 
     int num_menu = menu_entries.size();
@@ -73,10 +76,10 @@ static Element render_menu(int menu_index) {
         auto tab = text(std::string(menu_entries[i]));
 
         if (static_cast<int>(i) == menu_index) {
-            tab = tab | bold | inverted;
+            tab = tab | color(Color::SkyBlue1) | bold | inverted;
         }
         else {
-            tab = tab | dim;
+            tab = tab | color(Color::SkyBlue1) | dim;
         }
 
         tabs.push_back(tab);
@@ -85,17 +88,51 @@ static Element render_menu(int menu_index) {
         }
     }
 
+    Element content;
+
+    switch (menu_index) {
+        case 0:
+            content = render_git_entries_tab();
+            break;
+        case 1:
+            content = render_database_tab();
+            break;
+        default:
+            content = render_settings_tab();
+            break;
+    }
+
     return vbox({
             hbox({
                     hbox(std::move(tabs)) | flex,
                     }),
             separator(),
-            text(std::string(menu_entries[menu_index])) | bold,
+            content
+            });
+}
+
+static Element render_git_entries_tab() {
+    return hbox({
             vbox({
-                    text("Selected: " + std::string(menu_entries[menu_index])),
-                    text("Use left/right or h/l to switch tabs."),
-                    text("Press q to quit."),
-                    })
+                    window(text("Entries") | bold,
+                           filler()) | size(WIDTH, GREATER_THAN, 20) | size(WIDTH, LESS_THAN, 100) | xflex_shrink | yflex,
+                    }),
+            window(text("Visualization") | bold,
+                   filler()) | flex,
+            window(text("Commits") | bold,
+                   filler()) | flex,
+            }) | flex;
+}
+
+static Element render_database_tab() {
+    return vbox({
+            text("Database placeholder"),
+            });
+}
+
+static Element render_settings_tab() {
+    return vbox({
+            text("Settings placeholder"),
             });
 }
 
