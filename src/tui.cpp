@@ -14,7 +14,7 @@ static volatile std::sig_atomic_t g_should_exit = 0;
 
 auto render() {
     return vbox({
-            window(text("TASK"), vbox(hbox({text("Hello")})))
+            window(text("TASK") | bold, vbox(hbox({text("Hello")})))
             });
 }
 
@@ -73,5 +73,4 @@ void init_tui() {
     /* \x1b[?25h shows the cursor. */
     /* \x1b[?1049l leaves the terminal alternate screen. */
     std::cout << "\x1b[?25h" << "\x1b[?1049l";
-    std::cout << std::endl;
 }
