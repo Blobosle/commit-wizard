@@ -34,7 +34,8 @@ int main(int argc, char **argv) {
         g_entries.push_back(fetch_commits(argv[root_dir]));
     }
 
-    /* TODO: Tui logic somewhere around here */
+    init_tui();
+
     return 0;
 }
 
