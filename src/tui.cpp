@@ -2,19 +2,100 @@
 #include <ftxui/dom/elements.hpp>
 #include <ftxui/screen/screen.hpp>
 
+#include <array>
 #include <cerrno>
 #include <csignal>
+#include <string_view>
 #include <termios.h>
 #include <unistd.h>
 #include <iostream>
 
 using namespace ftxui;
 
+static Element render_menu(int);
+static int tui_input(int&);
+
 static volatile std::sig_atomic_t g_should_exit = 0;
 
-auto render() {
+static int tui_input(int& menu_index) {
+    char input = 0;
+    int bytes_read = read(STDIN_FILENO, &input, 1);
+
+    if ((bytes_read == 1 && input == 'q') ||
+            (bytes_read == -1 && errno == EINTR && g_should_exit)) {
+        return 1;
+    }
+
+    if (bytes_read != 1) {
+        return 0;
+    }
+
+    if (input == 'h') {
+        menu_index = (menu_index + 2) % 3;
+        return 0;
+    }
+
+    if (input == 'l') {
+        menu_index = (menu_index + 1) % 3;
+        return 0;
+    }
+
+    if (input == '\x1b') {
+        char sequence[2] = {0, 0};
+        if (read(STDIN_FILENO, &sequence[0], 1) == 1 &&
+                read(STDIN_FILENO, &sequence[1], 1) == 1 &&
+                sequence[0] == '[') {
+            if (sequence[1] == 'D') {
+                menu_index = (menu_index + 2) % 3;
+            }
+            else if (sequence[1] == 'C') {
+                menu_index = (menu_index + 1) % 3;
+            }
+        }
+    }
+
+    return 0;
+}
+
+static Element render_menu(int menu_index) {
+    std::array<std::string_view, 3> menu_entries = {
+        "menu 1",
+        "menu 2",
+        "menu 3",
+    };
+
+    int num_menu = menu_entries.size();
+
+    Elements tabs;
+    tabs.reserve(num_menu);
+
+    for (int i = 0; i < num_menu; i++) {
+        auto tab = text(std::string(menu_entries[i]));
+
+        if (static_cast<int>(i) == menu_index) {
+            tab = tab | bold | inverted;
+        }
+        else {
+            tab = tab | dim;
+        }
+
+        tabs.push_back(tab);
+        if (i + 1 != menu_entries.size()) {
+            tabs.push_back(separatorEmpty());
+        }
+    }
+
     return vbox({
-            window(text("TASK") | bold, vbox(hbox({text("Hello")})))
+            hbox({
+                    hbox(std::move(tabs)) | flex,
+                    }),
+            separator(),
+            text(std::string(menu_entries[menu_index])) | bold,
+            vbox({
+                    text("Selected: " + std::string(menu_entries[menu_index])),
+                    text("Use left/right or h/l to switch tabs."),
+                    text("Press q to quit."),
+                    })
             });
 }
 
@@ -39,6 +120,7 @@ void init_tui() {
     tcsetattr(STDIN_FILENO, TCSANOW, &raw);
 
     std::string resetp;
+    int menu_index = 0;
 
     /* \x1b[?1049h enters the terminal alternate screen. */
     /* \x1b[?25l hides the cursor. */
@@ -49,7 +131,7 @@ void init_tui() {
             break;
         }
 
-        auto document = render();
+        auto document = render_menu(menu_index);
         auto screen = Screen::Create(Dimension::Full(), Dimension::Full());
         Render(screen, document);
 
@@ -57,12 +139,7 @@ void init_tui() {
         screen.Print();
         resetp = screen.ResetPosition();
 
-        /* TODO: May need to standardize this thing for input shortcuts */
-        char input = 0;
-        int bytes_read = read(STDIN_FILENO, &input, 1);
-
-        if ((bytes_read == 1 && input == 'q') ||
-                (bytes_read == -1 && errno == EINTR && g_should_exit)) {
+        if (tui_input(menu_index)) {
             break;
         }
     }
