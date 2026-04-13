@@ -2,6 +2,7 @@
 #include <ftxui/dom/elements.hpp>
 #include <ftxui/screen/screen.hpp>
 
+#include <algorithm>
 #include <array>
 #include <cerrno>
 #include <csignal>
@@ -12,15 +13,15 @@
 
 using namespace ftxui;
 
-static Element render_menu(int);
-static Element render_git_entries_tab();
+static Element render_menu(int, int);
+static Element render_git_entries_tab(int);
 static Element render_database_tab();
 static Element render_settings_tab();
-static int tui_input(int&);
+static int tui_input(int&, int&);
 
 static volatile std::sig_atomic_t g_should_exit = 0;
 
-static int tui_input(int& menu_index) {
+static int tui_input(int& menu_index, int& selected_entry) {
     char input = 0;
     int bytes_read = read(STDIN_FILENO, &input, 1);
 
@@ -43,12 +44,30 @@ static int tui_input(int& menu_index) {
         return 0;
     }
 
+    if (menu_index == 0 && !g_entries.empty()) {
+        if (input == 'j') {
+            selected_entry = std::min(selected_entry + 1, static_cast<int>(g_entries.size()) - 1);
+            return 0;
+        }
+
+        if (input == 'k') {
+            selected_entry = std::max(selected_entry - 1, 0);
+            return 0;
+        }
+    }
+
     if (input == '\x1b') {
         char sequence[2] = {0, 0};
         if (read(STDIN_FILENO, &sequence[0], 1) == 1 &&
                 read(STDIN_FILENO, &sequence[1], 1) == 1 &&
                 sequence[0] == '[') {
-            if (sequence[1] == 'D') {
+            if (sequence[1] == 'A' && menu_index == 0 && !g_entries.empty()) {
+                selected_entry = std::max(selected_entry - 1, 0);
+            }
+            else if (sequence[1] == 'B' && menu_index == 0 && !g_entries.empty()) {
+                selected_entry = std::min(selected_entry + 1, static_cast<int>(g_entries.size()) - 1);
+            }
+            else if (sequence[1] == 'D') {
                 menu_index = (menu_index + 2) % 3;
             }
             else if (sequence[1] == 'C') {
@@ -60,7 +79,7 @@ static int tui_input(int& menu_index) {
     return 0;
 }
 
-static Element render_menu(int menu_index) {
+static Element render_menu(int menu_index, int selected_entry) {
     std::array<std::string_view, 3> menu_entries = {
         "Git repositories",
         "Database",
@@ -92,7 +111,7 @@ static Element render_menu(int menu_index) {
 
     switch (menu_index) {
         case 0:
-            content = render_git_entries_tab();
+            content = render_git_entries_tab(selected_entry);
             break;
         case 1:
             content = render_database_tab();
@@ -111,11 +130,29 @@ static Element render_menu(int menu_index) {
             });
 }
 
-static Element render_git_entries_tab() {
+static Element render_git_entries_tab(int selected_entry) {
+    Elements entry_options;
+    entry_options.reserve(g_entries.size() + 1);
+
+    if (g_entries.empty()) {
+        entry_options.push_back(text("No entries loaded") | dim);
+    }
+    else {
+        for (int i = 0; i < static_cast<int>(g_entries.size()); i++) {
+            auto entry = text(g_entries[i].entry_name);
+
+            if (i == selected_entry) {
+                entry = entry | color(Color::SkyBlue1) | bold | inverted;
+            }
+
+            entry_options.push_back(entry);
+        }
+    }
+
     return hbox({
             vbox({
                     window(text("Entries") | bold,
-                           filler()) | size(WIDTH, GREATER_THAN, 20) | size(WIDTH, LESS_THAN, 100) | xflex_shrink | yflex,
+                           vbox(std::move(entry_options))) | size(WIDTH, GREATER_THAN, 20) | size(WIDTH, LESS_THAN, 100) | xflex_shrink | yflex,
                     }),
             window(text("Visualization") | bold,
                    filler()) | flex,
@@ -158,6 +195,7 @@ void init_tui() {
 
     std::string resetp;
     int menu_index = 0;
+    int selected_entry = 0;
 
     /* \x1b[?1049h enters the terminal alternate screen. */
     /* \x1b[?25l hides the cursor. */
@@ -168,7 +206,9 @@ void init_tui() {
             break;
         }
 
-        auto document = render_menu(menu_index);
+        selected_entry = std::clamp(selected_entry, 0, std::max(static_cast<int>(g_entries.size()) - 1, 0));
+
+        auto document = render_menu(menu_index, selected_entry);
         auto screen = Screen::Create(Dimension::Full(), Dimension::Full());
         Render(screen, document);
 
@@ -176,7 +216,7 @@ void init_tui() {
         screen.Print();
         resetp = screen.ResetPosition();
 
-        if (tui_input(menu_index)) {
+        if (tui_input(menu_index, selected_entry)) {
             break;
         }
     }
